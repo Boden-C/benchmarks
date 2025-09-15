@@ -1,17 +1,39 @@
-"""Custom exceptions for LLM providers."""
+"""
+LLM-specific exception hierarchy.
+
+Provides typed exceptions for different LLM provider error scenarios.
+"""
+
 
 class LLMProviderError(Exception):
-    """Base exception for LLM provider errors."""
+    """Base exception for all LLM provider errors."""
     pass
+
 
 class LLMAuthenticationError(LLMProviderError):
-    """Raised for authentication failures with the LLM API."""
+    """Authentication and API key errors."""
     pass
+
 
 class LLMAPIError(LLMProviderError):
-    """Raised for general API errors (e.g., server errors, rate limits)."""
+    """API communication and network errors."""
     pass
 
+
 class ContentFilterError(LLMProviderError):
-    """Raised when a response is blocked by content filters."""
+    """Content safety and filter violations."""
+    pass
+
+
+class TokenLimitError(LLMProviderError):
+    """Token limit exceeded errors."""
+    
+    def __init__(self, message: str, requested: int = 0, max_tokens: int = 0):
+        super().__init__(message)
+        self.requested = requested
+        self.max_tokens = max_tokens
+
+
+class InvalidResponseError(LLMProviderError):
+    """Malformed or invalid response errors."""
     pass
