@@ -2,406 +2,136 @@
 
 Complete guide for defining, executing, and analyzing benchmarks.
 
----
+# Running benchmarks (quick reference)
 
-## Quick Start
+This document provides the practical usage guide for defining, running and analysing benchmarks with this repository. It has been reconciled with the code in `benchmark/` and the CLI implemented in `main.py`.
 
-### Installation
+Quick start
+
+1. Clone the repo and install in editable mode for development:
 
 ```powershell
-# Clone and install
 git clone <repository-url>
 cd benchmarks
 pip install -e .
 
-# With visualization support
-pip install -e ".[viz]"
-
-# With development tools
-pip install -e ".[dev]"
+# optional groups
+pip install -e ".[viz]"   # visualization helpers
+pip install -e ".[dev]"   # development/test tooling
 ```
 
-### Configuration
+2. Copy `.env.example` to a local `.env` and populate provider keys (if you plan to call external LLM APIs). Example variables in `.env.example` include keys for Azure OpenAI and OpenRouter.
 
-Copy `.env.example` to `.env`:
-
-```env
-# Azure OpenAI
-AZURE_OPENAI_API_KEY=your_key_here
-AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
-
-# OpenRouter
-OPENROUTER_API_KEY=your_key_here
-
-# Other providers
-LLAMA_4_MAVERICK_API_KEY=your_key_here
-LLAMA_4_MAVERICK_BASE_URL=https://api.example.com/v1
-```
-
-### Run Your First Benchmark
+3. Run a benchmark from the repository root:
 
 ```powershell
-# Basic execution
 python main.py --benchmark example_benchmark
-
-# Specific models
-python main.py --benchmark example_benchmark --models gpt-4o,o4-mini
-
-# List available models
-python main.py --list-models
 ```
 
----
+CLI flags and common usage
 
-## Defining a Benchmark
+-   `--benchmark <name>` (required): the benchmark directory name under `tests/` (for example `example_benchmark`).
+-   `--config <path>`: optional path to a benchmark config YAML that overrides `tests/<name>/config.yaml`.
+-   `--questions <path>`: optional path to the tasks file (JSONL) overriding the configured tasks file.
+-   `--models <comma-separated>`: filter the models declared in the benchmark config (or use `all`).
+-   `--output <path>`: path to write the results snapshot (JSON) when the run finishes.
+-   `--list-models`: prints available models discovered from config and exits.
+-   `--verbose`: more verbose logging.
 
-### 1. Create Benchmark Directory
+The CLI falls back to `tests/<benchmark>/config.yaml` and the tasks path declared in that config when flags are not provided.
 
-```
-tests/
-└── my_benchmark/
-    ├── config.yaml
-    ├── questions.jsonl
-    └── my_benchmark.py
-```
+Defining a benchmark
 
-### 2. Define Configuration
+Place a benchmark under `tests/<name>/` with at minimum:
 
-Create `tests/my_benchmark/config.yaml`:
+-   `config.yaml` — benchmark configuration (metadata, models list, execution settings, evaluation toggles, results output)
+    -- `questions.jsonl` — newline-delimited JSON tasks. Each line should at least include `id`, `messages` (list of chat messages) and `ground_truth`.
 
-```yaml
-metadata:
-    name: "My Benchmark"
-    version: "1.0.0"
-    description: "Custom benchmark description"
+        Note: `questions.jsonl` follows OpenRouter-style chat payloads (message objects with `role` and `content` fields). The repo `README.md` and the execution module expect OpenRouter-style chat messages; any model-specific hints in the task payload are ignored and models are selected from the benchmark `config.yaml`.
 
-models:
-    - name: "gpt-4o"
-      provider: "azure"
-    - name: "claude-sonnet-4"
-      provider: "openrouter"
+-   `<name>.py` — optional: a `Benchmark` subclass implementing `async def grade(self, result, task)`.
 
-execution:
-    timeout: 1200
-    max_retries: 3
-    concurrent_execution: true
-
-evaluation:
-    enable_llm_judge: false
-
-results:
-    output_dir: "./results"
-    save_intermediate: true
-```
-
-### 3. Create Tasks
-
-Create `tests/my_benchmark/questions.jsonl`:
+Example task line (JSONL):
 
 ```jsonl
-{"id": "task_001", "messages": [{"role": "user", "content": "What is 2+2?"}], "ground_truth": "4", "metadata": {"difficulty": "easy"}}
-{"id": "task_002", "messages": [{"role": "user", "content": "Explain quantum entanglement"}], "ground_truth": "Quantum entanglement is...", "metadata": {"difficulty": "hard"}}
+{
+    "id": "task_001",
+    "messages": [
+        {
+            "role": "user",
+            "content": "What is 2+2?"
+        }
+    ],
+    "ground_truth": "4"
+}
 ```
 
-### 4. Implement Benchmark Class
+Configuration system
 
-Create `tests/my_benchmark/my_benchmark.py`:
+Configuration is hierarchical and merged in this order (lowest → highest):
 
-```python
-from benchmark.benchmark import Benchmark
-from benchmark.models import TaskResult, Task, Grade
-from benchmark.evaluation.graders import exact_match, substring_match
+1. built-in defaults (in `benchmark.config.loader._get_default_config()`)
+2. `global_config.yaml` at the repo root
+3. `tests/<benchmark>/config.yaml`
+4. environment variables with `BENCHMARK_*` prefix
+5. programmatic overrides via `apply_overrides()`
 
-class MyBenchmark(Benchmark):
-    async def grade(self, result: TaskResult, task: Task) -> Grade:
-        response = result.response
-        ground_truth = task.ground_truth
+Use `benchmark.config.loader.load_config(global_source, benchmark_source)` to load and validate a merged `BenchmarkRunConfig` instance programmatically. Use `apply_overrides()` to apply runtime changes.
 
-        # Exact match grading
-        if exact_match(response, ground_truth):
-            return Grade(
-                score=1.0,
-                passed=True,
-                reasoning="Exact match with ground truth",
-                grader_name="exact_match"
-            )
+Execution modes
 
-        # Partial credit for substring match
-        elif substring_match(response, ground_truth):
-            return Grade(
-                score=0.5,
-                passed=False,
-                reasoning="Partial match found",
-                grader_name="substring_match"
-            )
+-   SimpleExecutor (default): single-turn chat completion. Fast, parallel per-model execution. Use for Q&A, classification, and simple generation tasks.
+-   AgenticExecutor: multi-round planning and tool orchestration (requires `features.tools.ToolRegistry` and registered `Tool` implementations). Use for multi-step problems that benefit from external tools.
 
-        # No match
-        else:
-            return Grade(
-                score=0.0,
-                passed=False,
-                reasoning="No match with ground truth",
-                grader_name="exact_match"
-            )
-```
-
----
-
-## Execution Modes
-
-### Simple Execution
-
-Single-turn chat completions. Default mode for straightforward Q&A tasks.
-
-**Characteristics**:
-
--   One prompt, one response per task
--   Parallel execution across models
--   Fast and efficient
--   No tool usage
-
-**Usage**:
-
-```python
-from benchmark.execution.simple_executor import SimpleExecutor
-
-benchmark = MyBenchmark(executor_class=SimpleExecutor)
-result = await benchmark.run()
-```
-
-**When to Use**:
-
--   Classification tasks
--   Simple Q&A
--   Text generation
--   Summarization
-
-### Agentic Execution
-
-Multi-round planning and tool execution. For complex tasks requiring reasoning and tool use.
-
-**Characteristics**:
-
--   Planning → Tool Execution → Synthesis loop
--   Up to 10 execution rounds
--   Tool orchestration
--   State management with compression
--   Accumulated context tracking
-
-**Usage**:
-
-```python
-from benchmark.execution.agentic.executor import AgenticExecutor
-from features.tools import ToolRegistry, Tool
-
-# Register tools
-registry = ToolRegistry()
-registry.register(SearchTool())
-registry.register(CalculatorTool())
-
-# Create benchmark with agentic executor
-benchmark = MyBenchmark(
-    executor_class=AgenticExecutor,
-    tool_registry=registry
-)
-result = await benchmark.run()
-```
-
-**When to Use**:
-
--   Multi-step problem solving
--   Tasks requiring tool use
--   Complex reasoning
--   Information gathering across sources
-
----
-
-## Configuration System
-
-### Configuration Hierarchy
-
-Configuration is loaded in this priority order:
-
-1. **Default values** - Defined in `BenchmarkConfig._get_default_config()`
-2. **Global config** - `global_config.yaml` at repository root
-3. **Benchmark config** - `tests/<benchmark>/config.yaml`
-4. **Environment variables** - `BENCHMARK_*` prefix overrides
-5. **Programmatic overrides** - Runtime modifications
-
-### Global Configuration
-
-Edit `global_config.yaml` for framework-level defaults:
-
-```yaml
-execution:
-    task_timeout: 1500
-    max_retries: 3
-    retry_delay: 2
-    max_execution_rounds: 10
-    compression_retries: 2
-
-llm:
-    planning_tokens: 8000
-    summarization_max_tokens: 4000
-    evaluation_max_tokens: 8000
-    token_reduction_factors: [0.8, 0.6, 0.4]
-
-benchmark:
-    enable_judge_stability: false
-    concurrent_summarization: false
-    use_fuzzy_descriptions: false
-
-cache:
-    enabled: false
-    ttl_hours: 24
-    max_size_mb: 1000
-```
-
-### Environment Variable Overrides
-
-Override any configuration with environment variables:
-
-```powershell
-# Override task timeout
-$env:BENCHMARK_EXECUTION_TASK_TIMEOUT = "2000"
-
-# Override max rounds
-$env:BENCHMARK_EXECUTION_MAX_EXECUTION_ROUNDS = "15"
-
-# Enable caching
-$env:BENCHMARK_CACHE_ENABLED = "true"
-
-# Run benchmark
-python main.py --benchmark my_benchmark
-```
-
-### Programmatic Overrides
-
-Modify configuration at runtime:
-
-```python
-from benchmark.config.loader import load_config, apply_overrides
-
-# Load base configuration
-config = load_config(
-    global_source="global_config.yaml",
-    benchmark_source="tests/my_benchmark/config.yaml"
-)
-
-# Apply overrides
-config = apply_overrides(config, {
-    "execution.timeout": 2000,
-    "metadata.notes": "Custom run",
-    "evaluation.enable_llm_judge": True
-})
-
-# Create benchmark with custom config
-benchmark = MyBenchmark(config=config)
-result = await benchmark.run()
-```
-
----
-
-## CLI Usage
-
-### Basic Commands
-
-```powershell
-# Run benchmark
-python main.py --benchmark <name>
-
-# Custom config
-python main.py --benchmark <name> --config path/to/config.yaml
-
-# Custom tasks
-python main.py --benchmark <name> --questions path/to/questions.jsonl
-
-# Specific models
-python main.py --benchmark <name> --models gpt-4o,claude-sonnet-4
-
-# All models
-python main.py --benchmark <name> --models all
-
-# Custom output
-python main.py --benchmark <name> --output results/custom.json
-
-# Verbose logging
-python main.py --benchmark <name> --verbose
-```
-
-### Feature Toggles
-
-```powershell
-# Disable features
-python main.py --benchmark <name> --disable-fuzzy
-python main.py --benchmark <name> --disable-judge-stability
-python main.py --benchmark <name> --disable-concurrent-summarization
-
-# Enable caching
-python main.py --benchmark <name> --enable-cache
-```
-
-### Advanced Examples
-
-```powershell
-# Complete custom run
-python main.py --benchmark my_benchmark `
-  --config custom.yaml `
-  --questions custom_tasks.jsonl `
-  --models gpt-4o,o4-mini `
-  --output results/experiment_001.json `
-  --enable-cache `
-  --verbose
-
-# List available models
-python main.py --list-models
-```
-
----
-
-## Programmatic Usage
-
-### Basic Execution
+Programmatic usage (basic)
 
 ```python
 import asyncio
-from tests.my_benchmark.my_benchmark import MyBenchmark
+from tests.example_benchmark.example_benchmark import ExampleBenchmark
 
-async def run_benchmark():
-    benchmark = MyBenchmark()
-    result = await benchmark.run()
+async def run():
+    benchmark = ExampleBenchmark()
+    output = await benchmark.run()
+    print(output.summary)
 
-    print(f"Tasks completed: {len(result.results)}")
-    print(f"Mean score: {result.summary['mean_score']:.2f}")
-    print(f"Pass rate: {result.summary['pass_rate']:.2%}")
-
-    return result
-
-result = asyncio.run(run_benchmark())
+asyncio.run(run())
 ```
 
-### Custom Configuration
+Programmatic configuration and overrides
 
 ```python
 from benchmark.config.loader import load_config, apply_overrides
-from tests.my_benchmark.my_benchmark import MyBenchmark
 
-# Load and customize config
-config = load_config(
-    global_source="global_config.yaml",
-    benchmark_source="tests/my_benchmark/config.yaml"
-)
+config = load_config("global_config.yaml", "tests/example_benchmark/config.yaml")
+config = apply_overrides(config, {"execution": {"timeout": 2000}})
 
-config = apply_overrides(config, {
-    "execution.timeout": 2000,
-    "execution.max_retries": 5,
-    "metadata.experiment_id": "exp_001"
-})
+# pass the config into your Benchmark subclass (constructor supports a `config` param)
+benchmark = ExampleBenchmark(config=config)
+```
+
+Grading and evaluation
+
+The user-provided `Benchmark.grade()` method receives each `TaskResult` and the original `Task`. Use the helpers in `benchmark.evaluation.graders` for common patterns (exact, substring, regex, numeric, JSON). For subjective evaluation, an LLM-based judge is available via `benchmark.evaluation.graders.llm_judge` which uses the configured provider factory.
+
+Saving and analysing results
+
+-   `Benchmark.run()` returns a `BenchmarkOutput` dataclass containing `results`, `summary`, and `metadata`.
+    -- When `config.results.save_intermediate` is enabled, `Benchmark.run()` will write snapshots to `config.results.output_dir`.
+-   The optional `visualizer/` package provides `aggregator`, `formatter`, and `graph` utilities to merge and visualise run outputs.
+
+Notes & troubleshooting
+
+-   If you find contradictions between docs and implementation, please open an issue or submit a patch; this documentation has been updated to match the current implementation where practical.
+-   Don't commit API keys — use `.env` or environment variables for credentials.
+
+If you need a minimal working example, inspect `tests/example_benchmark/` which includes a `config.yaml`, `questions.jsonl`, and an example benchmark implementation.
 
 # Run with custom config
+
 benchmark = MyBenchmark(config=config)
 result = await benchmark.run()
-```
+
+````
 
 ### Task Manipulation
 
@@ -426,7 +156,7 @@ new_task = Task(
 benchmark.tasks.append(new_task)
 
 result = await benchmark.run()
-```
+````
 
 ### Custom Executor Setup
 
@@ -458,6 +188,203 @@ executor = AgenticExecutor(
 # Use with benchmark
 benchmark = MyBenchmark(executor_class=executor)
 result = await benchmark.run()
+```
+
+---
+
+## Evaluation and Grading
+
+### Built-in Grading Functions
+
+The evaluation module provides several built-in graders in `benchmark.evaluation.graders`:
+
+#### Exact Match
+
+```python
+from benchmark.evaluation.graders import exact_match
+
+# Case-insensitive exact match
+if exact_match(response, ground_truth, case_sensitive=False):
+    return Grade(score=1.0, passed=True, reasoning="Exact match", grader_name="exact_match")
+```
+
+#### Substring Match
+
+```python
+from benchmark.evaluation.graders import substring_match
+
+# Check if ground truth appears in response
+if substring_match(response, ground_truth, min_length=5):
+    return Grade(score=1.0, passed=True, reasoning="Substring found", grader_name="substring_match")
+```
+
+#### Fuzzy Match
+
+```python
+from benchmark.evaluation.graders import fuzzy_match
+
+# Similarity-based matching (80% threshold)
+if fuzzy_match(response, ground_truth, threshold=0.8):
+    return Grade(score=1.0, passed=True, reasoning="High similarity", grader_name="fuzzy_match")
+```
+
+#### Numeric Match
+
+```python
+from benchmark.evaluation.graders import numeric_match
+
+# Extract and compare numeric values
+if numeric_match(response, 42.0, tolerance=0.01, extract_first=True):
+    return Grade(score=1.0, passed=True, reasoning="Numeric match", grader_name="numeric_match")
+```
+
+#### Regex Match
+
+```python
+from benchmark.evaluation.graders import regex_match
+import re
+
+# Pattern-based validation
+pattern = r'\b\d{3}-\d{4}\b'  # Phone number format
+if regex_match(response, pattern, flags=re.IGNORECASE):
+    return Grade(score=1.0, passed=True, reasoning="Pattern matched", grader_name="regex_match")
+```
+
+#### JSON Match
+
+```python
+from benchmark.evaluation.graders import json_match
+
+# Validate JSON structure
+expected_schema = {"status": "success", "count": 5}
+if json_match(response, expected_schema, strict=False):
+    return Grade(score=1.0, passed=True, reasoning="Valid JSON", grader_name="json_match")
+```
+
+### LLM-Based Judging
+
+For subjective or complex evaluations, use the LLM judge:
+
+```python
+from benchmark.evaluation.graders import llm_judge
+from benchmark.execution.llm.factory import LLMFactory
+
+class SubjectiveBenchmark(Benchmark):
+    async def grade(self, result: TaskResult, task: Task) -> Grade:
+        # Create judge provider
+        judge_config = await LLMFactory.create_llm_provider(
+            ModelConfig(name="gpt-4o", provider="azure")
+        )
+
+        # Use LLM to judge
+        passed, score, reasoning = await llm_judge(
+            response=result.response,
+            ground_truth=task.ground_truth,
+            task_description=task.messages[0].content,
+            llm_provider=judge_config,
+            criteria="Accuracy, completeness, and clarity"
+        )
+
+        return Grade(
+            score=score,
+            passed=passed,
+            reasoning=reasoning,
+            grader_name="llm_judge"
+        )
+```
+
+### Composite Grading
+
+Combine multiple grading strategies:
+
+```python
+from benchmark.evaluation.graders import exact_match, substring_match, numeric_match
+
+class CompositeBenchmark(Benchmark):
+    async def grade(self, result: TaskResult, task: Task) -> Grade:
+        response = result.response
+        ground_truth = task.ground_truth
+
+        # Try exact match first
+        if exact_match(response, ground_truth):
+            return Grade(score=1.0, passed=True,
+                        reasoning="Exact match", grader_name="exact_match")
+
+        # Check for numeric answer
+        if isinstance(ground_truth, (int, float)):
+            if numeric_match(response, ground_truth, tolerance=0.01):
+                return Grade(score=1.0, passed=True,
+                            reasoning="Numeric match", grader_name="numeric_match")
+
+        # Partial credit for substring
+        if substring_match(response, str(ground_truth)):
+            return Grade(score=0.5, passed=False,
+                        reasoning="Partial match", grader_name="substring_match")
+
+        # No match
+        return Grade(score=0.0, passed=False,
+                    reasoning="No match", grader_name="composite")
+```
+
+### Custom Graders
+
+Create custom grading logic:
+
+```python
+from benchmark.evaluation.graders import create_custom_grader
+
+# Define custom validation
+def is_valid_email(response: str, ground_truth: Any) -> bool:
+    import re
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, response.strip()))
+
+# Create grader
+email_grader = create_custom_grader(
+    grading_function=is_valid_email,
+    score_on_pass=1.0,
+    score_on_fail=0.0
+)
+
+# Use in benchmark
+class EmailBenchmark(Benchmark):
+    async def grade(self, result: TaskResult, task: Task) -> Grade:
+        passed, score = email_grader(result.response, task.ground_truth)
+        return Grade(
+            score=score,
+            passed=passed,
+            reasoning="Valid email format" if passed else "Invalid email",
+            grader_name="email_validator"
+        )
+```
+
+### Advanced Evaluation
+
+Configure the evaluator for parallel grading:
+
+```python
+from benchmark.evaluation.evaluator import Evaluator
+
+# Create evaluator with custom settings
+evaluator = Evaluator(
+    grade_function=my_grade_function,
+    parallel=True,
+    max_concurrent=20
+)
+
+# Evaluate results
+graded_results = await evaluator.evaluate_results(results, tasks)
+
+# Calculate summary
+summary = evaluator.calculate_summary(graded_results)
+
+# Access per-model statistics
+for model_name, stats in summary['by_model'].items():
+    print(f"{model_name}: {stats['mean_score']:.2f} ({stats['pass_rate']:.1%})")
+
+# Access per-task statistics
+for task_id, stats in summary['by_task'].items():
+    print(f"{task_id}: {stats['mean_score']:.2f} (difficulty: {stats['pass_rate']:.1%})")
 ```
 
 ---
@@ -537,11 +464,14 @@ grapher.plot_timeline(results, output_path="timeline.png")
 -   Keep tools focused and single-purpose
 -   Use concurrent execution for independent tasks
 -   Monitor token usage and optimize prompts
+-   Use `utils.logger` for consistent error handling and logging
+-   Validate configuration early to catch issues before execution
 
 ---
 
 ## Next Steps
 
 -   Review `architecture.md` for complete system design
+-   See `flow.md` for runtime execution flow and mode diagrams
 -   Explore `tests/example_benchmark/` for reference implementation
 -   Check `global_config.yaml` for available settings

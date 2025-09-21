@@ -1,121 +1,43 @@
-```
-.
-├── benchmark/
-│   ├── __init__.py
-│   ├── models.py
-│   ├── benchmark.py
-│   ├── config/
-│   │   ├── __init__.py
-│   │   └── loader.py
-│   ├── execution/
-│   │   ├── __init__.py
-│   │   ├── base.py
-│   │   ├── simple_executor.py
-│   │   ├── agentic/
-│   │   │   ├── __init__.py
-│   │   │   ├── context.py
-│   │   │   └── executor.py
-│   │   └── llm/
-│   │       ├── __init__.py
-│   │       ├── exceptions.py
-│   │       ├── factory.py
-│   │       ├── provider.py
-│   │       └── providers/
-│   │           ├── __init__.py
-│   │           ├── openai.py
-│   │           └── openrouter.py
-│   └── evaluation/
-│       ├── __init__.py
-│       ├── evaluator.py
-│       └── graders.py
-├── visualizer/
-│   ├── __init__.py
-│   ├── aggregator.py
-│   ├── formatter.py
-│   └── graph.py
-├── features/
-│   ├── __init__.py
-│   └── tools.py
-├── utils/
-│   ├── __init__.py
-│   └── error_handler.py
-├── tests/
-│   └── example_benchmark/
-│       ├── config.yaml
-│       ├── example_benchmark.py
-│       └── questions.jsonl
-├── docs/
-│   ├── architecture.md
-│   └── running.md
-├── prompts/
-│   ├── conversationalist
-│   ├── direct
-│   └── README.md
-├── .env.example
-├── .gitignore
-├── global_config.yaml
-├── main.py
-├── pyproject.toml
-├── example_benchmark.ipynb
-└── README.md
-```
+This document describes the core architecture of the benchmark library and maps components to files in the repository. It has been reconciled with the current codebase: the `benchmark/` package is the implementation surface, `visualizer/` provides optional analysis utilities, and `tests/` contains example benchmark suites.
+
+For run-time flow and execution-mode diagrams see the companion document `docs/flow.md` which contains the primary execution path, simple vs agentic execution details, and textual flow diagrams.
+
+Key components (mapped to files)
+
+- `benchmark/models.py` — Pydantic models used across the system (Task, ChatMessage, ModelConfig, TaskResult, Grade, BenchmarkRunConfig, BenchmarkOutput). These define the canonical data shapes for tasks, models, execution results and grades.
+- `benchmark/benchmark.py` — The `Benchmark` base class. Responsibilities:
+    - Load & validate configuration using `benchmark.config.loader.load_config`
+    - Load tasks (JSONL) into `Task` models
+    - Instantiate an `Executor` (Simple or Agentic) with providers created from `benchmark.execution.llm.factory`
+    - Orchestrate execution and grading, assemble a `BenchmarkOutput`
+
+- `benchmark/config/loader.py` — Configuration loader and `BenchmarkConfig` singleton. Provides:
+    - Default values, YAML merging (global + benchmark), environment variable overrides (`BENCHMARK_*`), and Pydantic validation
+    - Public helpers: `load_config()` and `apply_overrides()` for programmatic usage
+
+- `benchmark/execution/base.py` — Abstract executor protocol (`Executor`) and `ExecutionHook` definitions used by executor implementations.
+- `benchmark/execution/simple_executor.py` — Single-turn executor implementation. Key behaviors:
+    - Invoke LLM providers (through `LLMFactory`) for each model
+    - Normalize responses, extract token usage, handle retries and errors
+    - Return `TaskResult` objects
+- `benchmark/execution/agentic/context.py` — Execution state container used by agentic runs (`ExecutionContext`). Tracks compression, token reduction and round/retry counts.
+- `benchmark/execution/llm/` — Provider abstraction and concrete providers (`openai`, `openrouter`). The factory (`factory.py`) builds provider instances from `ModelConfig` entries.
+- `benchmark/evaluation/` — Grading helpers and orchestrator. `graders.py` exposes multiple deterministic graders (exact, substring, fuzzy, numeric, regex, json_schema) and `evaluator.py` can orchestrate grading across results.
+
+Design notes and decisions
+
+- Pydantic is used for strong typing and validation of configs/tasks/outputs.
+- Async I/O is used for non-blocking provider calls.
+- The configuration system is hierarchical: defaults < global_config.yaml < benchmark config < environment < programmatic overrides.
+- Extensibility points are intentionally small: new `Executor` subclasses, new `LLMProvider` implementations, and custom `Tool` classes for agentic execution.
+
+If you find any mismatch between this document and the code, follow the code when resolving contradictions: the code defines the true behavior.
 
 ---
 
-## Core Architecture
-
-### Primary Execution Flow
-
-The benchmark library has **one primary execution path** for all benchmarks:
-
-```
-CLI (main.py) or Programmatic Import
-    ↓
-Benchmark.__init__()
-    ├── Load & merge configurations
-    ├── Parse tasks from questions.jsonl
-    └── Initialize executor with LLM providers
-    ↓
-Benchmark.run()
-    ├── For each task:
-    │   ├── Executor.execute_task() → list[TaskResult]
-    │   └── Benchmark.grade() → Grade
-    └── Aggregate → BenchmarkOutput
-    ↓
-Save results & display summary
-```
-
-### Execution Mode Details
-
-**Simple Execution** (default):
-
-```
-SimpleExecutor.execute_task(task)
-    ├── For each model in parallel:
-    │   ├── LLMProvider.get_completion(messages)
-    │   ├── Handle retries & errors
-    │   └── Return TaskResult
-    └── Return list[TaskResult] (one per model)
-```
-
-**Agentic Execution** (tool-using):
-
-```
-AgenticExecutor.execute_task(task)
-    ├── For each model:
-    │   ├── Create ExecutionContext
-    │   └── Multi-round loop (max 10 rounds):
-    │       ├── Plan: LLM decides next tool calls (JSON)
-    │       ├── Execute: Run tools (sequential/parallel)
-    │       ├── Update: Append results, compress if needed
-    │       └── Check: Complete or continue?
-    │   ├── Synthesize final answer
-    │   └── Return TaskResult with execution history
-    └── Return list[TaskResult]
-```
+For runtime flow and mode-specific diagrams see the companion document `docs/flow.md`.
 
 ---
-
 ## Detailed Component Specifications
 
 ### `benchmark/models.py`
@@ -250,7 +172,7 @@ AgenticExecutor.execute_task(task)
             - summary (statistics dict)
             - errors (any errors encountered)
             - execution_time (total duration)
-        5. If config.results.save_results=True:
+        5. If config.results.save_intermediate=True:
             - Save to config.results.output_dir as JSON
         6. Return BenchmarkOutput instance
 
@@ -278,7 +200,7 @@ class MyBenchmark(Benchmark):
 # Run benchmark
 benchmark = MyBenchmark()  # Loads tests/my_benchmark/config.yaml automatically
 result = await benchmark.run()
-```
+````
 
 ---
 
@@ -760,6 +682,137 @@ _Cache Configuration_:
 
 ---
 
+### `benchmark/evaluation/evaluator.py`
+
+**Purpose**: Task result evaluation orchestration with parallel grading support.
+
+**Class: `Evaluator`**
+
+**Methods**:
+
+-   `__init__(self, grade_function: Callable[[TaskResult, Task], Grade], parallel: bool = True, max_concurrent: int = 10)`
+
+    -   Stores grading function to apply to each result
+    -   Sets parallel execution flag and concurrency limit
+    -   Initializes semaphore for concurrent grading control
+
+-   `async def evaluate_results(self, results: list[TaskResult], tasks: list[Task]) -> list[tuple[TaskResult, Grade]]`
+
+    -   Main evaluation entry point
+    -   Creates task_id to Task mapping for efficient lookup
+    -   Calls `_evaluate_parallel()` or `_evaluate_sequential()` based on settings
+    -   Returns list of (TaskResult, Grade) tuples
+    -   Logs evaluation progress and completion
+
+-   `async def _evaluate_parallel(self, results: list[TaskResult], task_map: dict[str, Task]) -> list[tuple[TaskResult, Grade]]`
+
+    -   Evaluates results concurrently with semaphore control
+    -   Creates grading tasks with `grade_with_semaphore()` wrapper
+    -   Uses `asyncio.gather()` for concurrent execution
+    -   Respects max_concurrent limit via semaphore
+
+-   `async def _evaluate_sequential(self, results: list[TaskResult], task_map: dict[str, Task]) -> list[tuple[TaskResult, Grade]]`
+
+    -   Evaluates results one by one
+    -   Used when parallel=False or for debugging
+    -   Returns results in original order
+
+-   `async def _grade_single(self, result: TaskResult, task_map: dict[str, Task]) -> tuple[TaskResult, Grade]`
+
+    -   Grades single TaskResult using provided grade_function
+    -   Looks up corresponding Task from task_map
+    -   Handles missing tasks and grading errors gracefully
+    -   Returns error Grade on exceptions with detailed metadata
+    -   Validates Grade object type and structure
+
+-   `def calculate_summary(self, graded_results: list[tuple[TaskResult, Grade]]) -> dict`
+
+    -   Calculates comprehensive summary statistics
+    -   Computes mean, median, min, max scores
+    -   Calculates pass rate and counts
+    -   Groups results by model via `_group_by_model()`
+    -   Groups results by task via `_group_by_task()`
+    -   Returns dict with all summary metrics
+
+-   `def _group_by_model(self, graded_results: list[tuple[TaskResult, Grade]]) -> dict[str, dict]`
+
+    -   Aggregates results per model
+    -   Calculates per-model mean score and pass rate
+    -   Tracks token usage and execution time
+    -   Returns dict mapping model_name → statistics
+
+-   `def _group_by_task(self, graded_results: list[tuple[TaskResult, Grade]]) -> dict[str, dict]`
+
+    -   Aggregates results per task
+    -   Calculates per-task mean score and pass rate
+    -   Shows which tasks are hardest across models
+    -   Returns dict mapping task_id → statistics
+
+---
+
+### `benchmark/evaluation/graders.py`
+
+**Purpose**: Collection of grading functions for automated and LLM-based evaluation.
+
+**Functions**:
+
+-   `exact_match(response: str, ground_truth: str, case_sensitive: bool = False, strip_whitespace: bool = True) -> bool`
+
+    -   Checks exact string match between response and ground truth
+    -   Optional case-insensitive comparison
+    -   Optional whitespace normalization
+    -   Returns True if exact match, False otherwise
+
+-   `substring_match(response: str, ground_truth: str, case_sensitive: bool = False, min_length: int = 3) -> bool`
+
+    -   Checks if ground truth appears as substring in response
+    -   Validates minimum substring length to avoid trivial matches
+    -   Returns True if substring found, False otherwise
+
+-   `fuzzy_match(response: str, ground_truth: str, threshold: float = 0.8, case_sensitive: bool = False) -> bool`
+
+    -   Uses SequenceMatcher for similarity comparison
+    -   Configurable similarity threshold (0.0 to 1.0)
+    -   Returns True if similarity above threshold
+
+-   `numeric_match(response: str, ground_truth: float, tolerance: float = 1e-6, extract_first: bool = True) -> bool`
+
+    -   Extracts numeric values from response
+    -   Compares with tolerance for floating point precision
+    -   Can extract first number or parse entire response
+    -   Returns True if within tolerance
+
+-   `regex_match(response: str, pattern: str, flags: int = 0) -> bool`
+
+    -   Checks if response matches regex pattern
+    -   Supports all Python regex flags
+    -   Returns True if pattern found
+
+-   `json_match(response: str, expected_schema: dict[str, Any], strict: bool = True) -> bool`
+
+    -   Validates JSON structure and content
+    -   Strict mode requires exact match
+    -   Non-strict mode allows subset matching
+    -   Returns True if valid JSON matching schema
+
+-   `async llm_judge(response: str, ground_truth: str, task_description: str, llm_provider: Any, criteria: Optional[str] = None, max_tokens: int = 4000) -> tuple[bool, float, str]`
+
+    -   Uses LLM to evaluate response quality
+    -   Constructs evaluation prompt with task context
+    -   Expects JSON response with score, passed, reasoning
+    -   Validates score is between 0.0 and 1.0
+    -   Returns (passed, score, reasoning) tuple
+    -   Handles LLM failures with error grades
+
+-   `create_custom_grader(grading_function: Callable[[str, Any], bool], score_on_pass: float = 1.0, score_on_fail: float = 0.0) -> Callable[[str, Any], tuple[bool, float]]`
+
+    -   Creates grader wrapper from boolean function
+    -   Configurable scores for pass/fail cases
+    -   Returns function that outputs (passed, score) tuple
+    -   Useful for converting simple validators to graders
+
+---
+
 ### `benchmark/runner.py`
 
 **Purpose**: Optional orchestration layer for **specialized MCP server benchmarks** with distraction servers and fuzzy descriptions.
@@ -895,7 +948,7 @@ _Cache Configuration_:
         -   Ensures proper server cleanup on completion or error
     -   Returns execution results dict
 
--   `def save_results(self, results: dict, output_file: str) -> str`
+-   `def _save_results(self, output: BenchmarkOutput) -> None` — Internal helper that writes results when `config.results.save_intermediate` is enabled.
 
     -   Serializes benchmark results to JSON file
     -   Creates output directory if doesn't exist
@@ -993,7 +1046,7 @@ _Cache Configuration_:
     -   Calls `_create_runner_and_get_models()`
     -   Calls `_print_configuration()`
     -   Executes `runner.run_benchmark()` with await
-    -   Calls `runner.save_results()` if output specified
+    -   Calls the runner's save helper (e.g. `_save_results`) if `config.results.save_intermediate` is enabled or an explicit output path is provided
     -   Prints summary statistics
     -   Handles KeyboardInterrupt for graceful shutdown
     -   Handles exceptions with logging and exit codes
@@ -1623,45 +1676,32 @@ benchmark = MyBenchmark(
 
 ---
 
-### `utils/error_handler.py`
+### `utils/logger.py`
 
-**Purpose**: Centralized error handling patterns.
+**Purpose**: Centralized logging utilities and custom exceptions.
 
-**Decorator: `handle_errors`**
+**Exception Classes**:
 
--   `def handle_errors(log_level: str = "ERROR", reraise: bool = True)`
-    -   Function decorator for error handling
-    -   Wraps function with try-except
-    -   Logs exceptions via `log_exception()`
-    -   Re-raises if reraise=True
-    -   Returns decorator function
+-   `BenchmarkError(Exception)` - Base exception for all benchmark errors
+-   `ConfigurationError(BenchmarkError)` - Configuration-related errors
+-   `ExecutionError(BenchmarkError)` - Task execution errors
+-   `EvaluationError(BenchmarkError)` - Result evaluation errors
 
-**Class: `ErrorContext`**
+**Functions**:
 
-**Methods**:
+-   `handle_error(error: Exception, context: str, reraise: bool = True, default_value: Optional[Any] = None) -> Optional[Any]`
 
--   `__init__(self, context_name: str, log_level: str = "ERROR")`
+    -   Handles exception with logging and optional re-raising
+    -   Logs error via `log_error()` with full context
+    -   Re-raises exception if reraise=True
+    -   Returns default_value if not re-raising
+    -   Used for centralized error handling patterns
 
-    -   Initializes error context manager
-    -   Stores context name for logging
-
--   `def __enter__(self)`
-
-    -   Context manager entry
-    -   Returns self
-
--   `def __exit__(self, exc_type, exc_val, exc_tb)`
-    -   Context manager exit
-    -   Logs exception if occurred via `log_exception()`
-    -   Returns False (doesn't suppress exceptions)
-
-**Function: `log_exception`**
-
--   `def log_exception(exception: Exception, context: str, log_level: str = "ERROR")`
-    -   Centralized exception logging
-    -   Formats exception with traceback
-    -   Logs with specified level
-    -   Includes context information
+-   `log_error(error: Exception, context: str) -> None`
+    -   Logs exception with context and full traceback
+    -   Formats error type, message, and stack trace
+    -   Uses module-level logger for consistent formatting
+    -   Used throughout codebase for error logging
 
 ---
 
