@@ -4,32 +4,34 @@ For run-time flow and execution-mode diagrams see the companion document `docs/f
 
 Key components (mapped to files)
 
-- `benchmark/models.py` — Pydantic models used across the system (Task, ChatMessage, ModelConfig, TaskResult, Grade, BenchmarkRunConfig, BenchmarkOutput). These define the canonical data shapes for tasks, models, execution results and grades.
-- `benchmark/benchmark.py` — The `Benchmark` base class. Responsibilities:
-    - Load & validate configuration using `benchmark.config.loader.load_config`
-    - Load tasks (JSONL) into `Task` models
-    - Instantiate an `Executor` (Simple or Agentic) with providers created from `benchmark.execution.llm.factory`
-    - Orchestrate execution and grading, assemble a `BenchmarkOutput`
+-   `benchmark/models.py` — Pydantic models used across the system (Task, ChatMessage, ModelConfig, TaskResult, Grade, BenchmarkRunConfig, BenchmarkOutput). These define the canonical data shapes for tasks, models, execution results and grades.
+-   `benchmark/benchmark.py` — The `Benchmark` base class. Responsibilities:
 
-- `benchmark/config/loader.py` — Configuration loader and `BenchmarkConfig` singleton. Provides:
-    - Default values, YAML merging (global + benchmark), environment variable overrides (`BENCHMARK_*`), and Pydantic validation
-    - Public helpers: `load_config()` and `apply_overrides()` for programmatic usage
+    -   Load & validate configuration using `benchmark.config.loader.load_config`
+    -   Load tasks (JSONL) into `Task` models
+    -   Instantiate an `Executor` (Simple or Agentic) with providers created from `benchmark.execution.llm.factory`
+    -   Orchestrate execution and grading, assemble a `BenchmarkOutput`
 
-- `benchmark/execution/base.py` — Abstract executor protocol (`Executor`) and `ExecutionHook` definitions used by executor implementations.
-- `benchmark/execution/simple_executor.py` — Single-turn executor implementation. Key behaviors:
-    - Invoke LLM providers (through `LLMFactory`) for each model
-    - Normalize responses, extract token usage, handle retries and errors
-    - Return `TaskResult` objects
-- `benchmark/execution/agentic/context.py` — Execution state container used by agentic runs (`ExecutionContext`). Tracks compression, token reduction and round/retry counts.
-- `benchmark/execution/llm/` — Provider abstraction and concrete providers (`openai`, `openrouter`). The factory (`factory.py`) builds provider instances from `ModelConfig` entries.
-- `benchmark/evaluation/` — Grading helpers and orchestrator. `graders.py` exposes multiple deterministic graders (exact, substring, fuzzy, numeric, regex, json_schema) and `evaluator.py` can orchestrate grading across results.
+-   `benchmark/config/loader.py` — Configuration loader and `BenchmarkConfig` singleton. Provides:
+
+    -   Default values, YAML merging (global + benchmark), environment variable overrides (`BENCHMARK_*`), and Pydantic validation
+    -   Public helpers: `load_config()` and `apply_overrides()` for programmatic usage
+
+-   `benchmark/execution/base.py` — Abstract executor protocol (`Executor`) and `ExecutionHook` definitions used by executor implementations.
+-   `benchmark/execution/simple_executor.py` — Single-turn executor implementation. Key behaviors:
+    -   Invoke LLM providers (through `LLMFactory`) for each model
+    -   Normalize responses, extract token usage, handle retries and errors
+    -   Return `TaskResult` objects
+-   `benchmark/execution/agentic/context.py` — Execution state container used by agentic runs (`ExecutionContext`). Tracks compression, token reduction and round/retry counts.
+-   `benchmark/execution/llm/` — Provider abstraction and concrete providers (`openai`, `openrouter`). The factory (`factory.py`) builds provider instances from `ModelConfig` entries.
+-   `benchmark/evaluation/` — Grading helpers and orchestrator. `graders.py` exposes multiple deterministic graders (exact, substring, fuzzy, numeric, regex, json_schema) and `evaluator.py` can orchestrate grading across results.
 
 Design notes and decisions
 
-- Pydantic is used for strong typing and validation of configs/tasks/outputs.
-- Async I/O is used for non-blocking provider calls.
-- The configuration system is hierarchical: defaults < global_config.yaml < benchmark config < environment < programmatic overrides.
-- Extensibility points are intentionally small: new `Executor` subclasses, new `LLMProvider` implementations, and custom `Tool` classes for agentic execution.
+-   Pydantic is used for strong typing and validation of configs/tasks/outputs.
+-   Async I/O is used for non-blocking provider calls.
+-   The configuration system is hierarchical: defaults < global_config.yaml < benchmark config < environment < programmatic overrides.
+-   Extensibility points are intentionally small: new `Executor` subclasses, new `LLMProvider` implementations, and custom `Tool` classes for agentic execution.
 
 If you find any mismatch between this document and the code, follow the code when resolving contradictions: the code defines the true behavior.
 
@@ -38,6 +40,7 @@ If you find any mismatch between this document and the code, follow the code whe
 For runtime flow and mode-specific diagrams see the companion document `docs/flow.md`.
 
 ---
+
 ## Detailed Component Specifications
 
 ### `benchmark/models.py`
@@ -200,7 +203,7 @@ class MyBenchmark(Benchmark):
 # Run benchmark
 benchmark = MyBenchmark()  # Loads tests/my_benchmark/config.yaml automatically
 result = await benchmark.run()
-````
+```
 
 ---
 

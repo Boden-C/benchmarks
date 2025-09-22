@@ -13,14 +13,14 @@ All benchmarks follow a single primary execution path:
 
 Execution modes
 
-- Simple execution (`benchmark.execution.simple_executor.SimpleExecutor`) performs single-turn chat completions. It typically runs completions for each configured model in parallel and returns a `TaskResult` per model.
-- Agentic execution (`benchmark.execution.agentic.executor.AgenticExecutor`) is a multi-round planner/executor that can call external tools via a `ToolRegistry` and maintains an `ExecutionContext` (see `benchmark.execution.agentic.context`). It supports planning → tool execution → synthesis loops and is intended for complex, tool-augmented tasks.
+-   Simple execution (`benchmark.execution.simple_executor.SimpleExecutor`) performs single-turn chat completions. It typically runs completions for each configured model in parallel and returns a `TaskResult` per model.
+-   Agentic execution (`benchmark.execution.agentic.executor.AgenticExecutor`) is a multi-round planner/executor that can call external tools via a `ToolRegistry` and maintains an `ExecutionContext` (see `benchmark.execution.agentic.context`). It supports planning → tool execution → synthesis loops and is intended for complex, tool-augmented tasks.
 
 Flow diagrams (text)
 
 CLI (main.py) or Programmatic Import
 ↓
-Benchmark.__init__()
+Benchmark.**init**()
 ├── Load & merge configurations
 ├── Parse tasks from questions.jsonl
 └── Initialize executor with LLM providers
@@ -58,5 +58,5 @@ AgenticExecutor.execute_task(task)
 
 Notes
 
-- Keep `flow.md` focused on run-time behavior and the sequence of operations. Implementation details and data model specifications remain in `architecture.md`.
-- If you update execution semantics in code, update both `docs/flow.md` and the corresponding sections in `docs/architecture.md` to keep them synchronized.
+-   Keep `flow.md` focused on run-time behavior and the sequence of operations. Implementation details and data model specifications remain in `architecture.md`.
+-   If you update execution semantics in code, update both `docs/flow.md` and the corresponding sections in `docs/architecture.md` to keep them synchronized.

@@ -184,8 +184,8 @@ grapher.plot_model_comparison(stats, metric="accuracy", output_path="comparison.
 **Documentation hub.**
 
 -   `architecture.md`: High-level system design narrative.
- -   `architecture.md`: High-level system design narrative.
- -   `flow.md`: Runtime execution flow and mode-specific diagrams (extracted from architecture).
+-   `architecture.md`: High-level system design narrative.
+-   `flow.md`: Runtime execution flow and mode-specific diagrams (extracted from architecture).
 -   `running.md`: Step-by-step operational walkthrough for defining, running, and understanding benchmarks.
 
 ### `prompts/`
@@ -208,7 +208,7 @@ grapher.plot_model_comparison(stats, metric="accuracy", output_path="comparison.
 ## Documentation
 
 -   [Architecture Overview](docs/architecture.md)
- -   [Architecture Overview](docs/architecture.md)
- -   [Execution Flow](docs/flow.md)
+-   [Architecture Overview](docs/architecture.md)
+-   [Execution Flow](docs/flow.md)
 -   [Running Benchmarks](docs/running.md)
 -   [Example Benchmark Implementation](tests/example_benchmark/)
