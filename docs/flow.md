@@ -1,62 +1,99 @@
-This document extracts the runtime execution flow and mode-specific details from the main architecture document.
+# Execution Flow
 
-Primary execution flow
+This document captures the primary execution paths and configuration loading lifecycle. For component mappings see [`architecture.md`](architecture.md). For design rationale see [`design.md`](design.md).
 
-All benchmarks follow a single primary execution path:
+## Simple Execution Flow
 
-1. CLI (`main.py`) or programmatic import instantiates a `Benchmark` subclass.
-2. `Benchmark.__init__()` loads and merges configuration (global + benchmark) using `benchmark.config.loader` and loads tasks from a JSONL file.
-3. `Benchmark.run()` iterates tasks and delegates execution to an `Executor` instance (default `SimpleExecutor`).
-4. Each executor returns one or more `TaskResult` objects for the task (typically one per model).
-5. The benchmark's `grade()` method (implemented by user subclasses) scores each `TaskResult` producing a `Grade`.
-6. Results are aggregated into a `BenchmarkOutput` and optionally persisted.
-
-Execution modes
-
--   Simple execution (`benchmark.execution.simple_executor.SimpleExecutor`) performs single-turn chat completions. It typically runs completions for each configured model in parallel and returns a `TaskResult` per model.
--   Agentic execution (`benchmark.execution.agentic.executor.AgenticExecutor`) is a multi-round planner/executor that can call external tools via a `ToolRegistry` and maintains an `ExecutionContext` (see `benchmark.execution.agentic.context`). It supports planning → tool execution → synthesis loops and is intended for complex, tool-augmented tasks.
-
-Flow diagrams (text)
-
-CLI (main.py) or Programmatic Import
-↓
-Benchmark.**init**()
-├── Load & merge configurations
-├── Parse tasks from questions.jsonl
-└── Initialize executor with LLM providers
-↓
+```
+CLI: main.py
+    ↓
+parse_arguments()
+    ↓
+_resolve_benchmark_module()
+    ↓
+Benchmark.__init__()
+    ├── load_config() → BenchmarkRunConfig
+    ├── load tasks → list[Task]
+    └── SimpleExecutor(models)
+    ↓
 Benchmark.run()
-├── For each task:
-│ ├── Executor.execute_task() → list[TaskResult]
-│ └── Benchmark.grade() → Grade
-└── Aggregate → BenchmarkOutput
-↓
-Save results & display summary
+    ↓
+For each task:
+    ├── SimpleExecutor.execute_task(task)
+    │   ├── For each model:
+    │   │   ├── LLMProvider.get_completion(messages)
+    │   │   └── Return TaskResult
+    │   └── Return list[TaskResult]
+    ├── For each TaskResult:
+    │   └── Benchmark.grade(result, task) → Grade
+    └── Aggregate into BenchmarkOutput
+    ↓
+Save results
+Print summary
+```
 
-Simple Execution (default):
+## Agentic Execution Flow
 
-SimpleExecutor.execute_task(task)
-├── For each model in parallel:
-│ ├── LLMProvider.get_completion(messages)
-│ ├── Handle retries & errors
-│ └── Return TaskResult
-└── Return list[TaskResult] (one per model)
+```
+CLI: main.py
+    ↓
+Benchmark.__init__(executor_class=AgenticExecutor)
+    ├── load_config()
+    ├── load tasks
+    ├── ToolRegistry.register(tools)
+    └── AgenticExecutor(models, tool_registry)
+    ↓
+Benchmark.run()
+    ↓
+For each task:
+    ├── AgenticExecutor.execute_task(task)
+    │   ├── For each model:
+    │   │   ├── Create ExecutionContext
+    │   │   ├── Initialize accumulated_info
+    │   │   └── Planning Loop (max 10 rounds):
+    │   │       ├── _plan_next_actions()
+    │   │       │   ├── _build_planning_prompt()
+    │   │       │   ├── LLMProvider.get_completion()
+    │   │       │   ├── Parse JSON plan
+    │   │       │   └── Handle errors (compress/reduce/fix)
+    │   │       ├── _execute_planned_tools()
+    │   │       │   ├── Identify sequential/parallel tools
+    │   │       │   ├── Execute tools via ToolRegistry
+    │   │       │   └── Collect results
+    │   │       ├── _update_state()
+    │   │       │   ├── Append results to accumulated_info
+    │   │       │   ├── Check threshold
+    │   │       │   └── Compress if needed
+    │   │       └── Check completion
+    │   │   ├── _synthesize_final_solution()
+    │   │   │   └── LLMProvider.get_completion()
+    │   │   └── Return TaskResult with execution_results
+    │   └── Return list[TaskResult]
+    ├── Optional: TaskEvaluator.evaluate()
+    │   ├── LLMJudge.evaluate_task_performance()
+    │   │   ├── _perform_evaluation() x3 (if stability)
+    │   │   └── _calculate_average_scores()
+    │   └── _calculate_tool_accuracy_metrics()
+    ├── Benchmark.grade(result, task) → Grade
+    └── Aggregate into BenchmarkOutput
+```
 
-Agentic Execution (tool-using):
+## Configuration Loading Flow
 
-AgenticExecutor.execute_task(task)
-├── For each model:
-│ ├── Create ExecutionContext
-│ └── Multi-round loop (max 10 rounds):
-│ ├── Plan: LLM decides next tool calls (JSON)
-│ ├── Execute: Run tools (sequential/parallel)
-│ ├── Update: Append results, compress if needed
-│ └── Check: Complete or continue?
-│ ├── Synthesize final answer
-│ └── Return TaskResult with execution history
-└── Return list[TaskResult]
-
-Notes
-
--   Keep `flow.md` focused on run-time behavior and the sequence of operations. Implementation details and data model specifications remain in `architecture.md`.
--   If you update execution semantics in code, update both `docs/flow.md` and the corresponding sections in `docs/architecture.md` to keep them synchronized.
+```
+Benchmark.__init__()
+    ↓
+config.loader.load_config(global_source, benchmark_source)
+    ├── Load global_config.yaml
+    │   └── Parse YAML → dict
+    ├── Load benchmark config.yaml
+    │   └── Parse YAML → dict
+    ├── Deep merge (benchmark overrides global)
+    ├── BenchmarkConfig._apply_env_overrides()
+    │   ├── Scan environment for BENCHMARK_* vars
+    │   ├── BenchmarkConfig._convert_env_value()
+    │   └── BenchmarkConfig._set_nested_value()
+    ├── Validate with Pydantic
+    │   └── BenchmarkRunConfig.model_validate()
+    └── Return BenchmarkRunConfig
+```

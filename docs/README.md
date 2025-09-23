@@ -4,32 +4,34 @@ This folder contains the user-facing documentation for the benchmark library.
 
 Primary documents
 
--   `architecture.md` — Detailed architecture and component specifications.
--   `architecture.md` — Detailed architecture and component specifications.
--   `flow.md` — Runtime execution flow and mode-specific diagrams (extracted from architecture).
--   `running.md` — Quickstart, configuration, CLI and programmatic usage, and examples.
+-   [`architecture.md`](architecture.md) — High-level architecture and component responsibilities.
+-   [`design.md`](design.md) — Detailed design and component specifications (mappings to files).
+-   [`flow.md`](flow.md) — Runtime execution flow and mode-specific diagrams.
+-   [`running.md`](running.md) — Quickstart, configuration, CLI and programmatic usage, and examples.
+-   [`todo.md`](todo.md) — Follow-up work and pending considerations.
 
 How the docs are organised
 
--   High level: the repository root `README.md` contains a project overview and quickstart.
--   Design & internals: `docs/architecture.md` contains a component-by-component description that maps to the code under `benchmark/`.
--   Design & internals: `docs/architecture.md` contains a component-by-component description that maps to the code under `benchmark/`.
--   Runtime flow: `docs/flow.md` contains the primary execution path and executor-mode details.
--   Usage & examples: `docs/running.md` covers installation, configuration overrides, CLI flags, and programmatic examples.
+-   High level: the repository root [`README.md`](../README.md) contains a project overview and quickstart.
+-   Architecture: [`docs/architecture.md`](architecture.md) contains a concise architecture overview and file mappings.
+-   Design & internals: [`docs/design.md`](design.md) contains component-by-component specifications mapped to the codebase.
+-   Runtime flow: [`docs/flow.md`](flow.md) contains the primary execution path, simple vs agentic execution details, and textual flow diagrams.
+-   Usage & examples: [`docs/running.md`](running.md) covers installation, configuration overrides, CLI flags, and programmatic examples.
 
 Related package READMEs
 
--   `benchmark/README.md` — package-level quick reference for the core Python package.
--   `benchmark/execution/README.md` — detailed README for the execution module (executors, LLM providers, agentic flow).
+-   [`../benchmark/README.md`](../benchmark/README.md) — package-level quick reference for the core Python package.
+-   [`../benchmark/execution/README.md`](../benchmark/execution/README.md) — detailed README for the execution module (executors, LLM providers, agentic flow).
 
 Quick links
 
--   Repository README: `../README.md`
--   Benchmark package README: `../benchmark/README.md`
--   Execution module README: `../benchmark/execution/README.md`
--   Architecture doc: `architecture.md`
--   Running guide: `running.md`
--   Execution flow: `flow.md`
--   Running guide: `running.md`
+-   Repository README: [`../README.md`](../README.md)
+-   Benchmark package README: [`../benchmark/README.md`](../benchmark/README.md)
+-   Execution module README: [`../benchmark/execution/README.md`](../benchmark/execution/README.md)
+-   Architecture doc: [`architecture.md`](architecture.md)
+-   Design doc: [`design.md`](design.md)
+-   Execution flow: [`flow.md`](flow.md)
+-   Running guide: [`running.md`](running.md)
+-   TODO tracker: [`todo.md`](todo.md)
 
 If you want to contribute docs or examples, add them here or under `tests/<benchmark_name>/`.
