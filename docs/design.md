@@ -4,10 +4,10 @@ This document outlines the conceptual design of the benchmark library: guiding p
 
 ## Design Highlights
 
-- Pydantic-backed models provide strong typing and validation of configs, tasks, and outputs.
-- Asynchronous I/O underpins executor and provider interactions to keep runs non-blocking.
-- Configuration is hierarchical: defaults < global config < benchmark config < environment variables < programmatic overrides.
-- Extensibility points are intentionally small, centering on executors, providers, and tools for agentic runs.
+-   Pydantic-backed models provide strong typing and validation of configs, tasks, and outputs.
+-   Asynchronous I/O underpins executor and provider interactions to keep runs non-blocking.
+-   Configuration is hierarchical: defaults < global config < benchmark config < environment variables < programmatic overrides.
+-   Extensibility points are intentionally small, centering on executors, providers, and tools for agentic runs.
 
 ## Key Design Patterns
 
@@ -159,17 +159,17 @@ Demonstrates combining LLM-judge outputs with standard grading.
 
 ### Unit Tests
 
-- Validate executors, evaluators, and helper utilities in isolation.
-- Mock providers to keep tests deterministic.
+-   Validate executors, evaluators, and helper utilities in isolation.
+-   Mock providers to keep tests deterministic.
 
 ### Integration Tests
 
-- Exercise benchmark execution end-to-end against synthetic tasks.
-- Confirm configuration loading, task execution, and grading interplay.
+-   Exercise benchmark execution end-to-end against synthetic tasks.
+-   Confirm configuration loading, task execution, and grading interplay.
 
 ### End-to-End Tests
 
-- Validate CLI flows via subprocess or harness-based runs.
-- Ensure exit codes, output persistence, and logging behave as expected.
+-   Validate CLI flows via subprocess or harness-based runs.
+-   Ensure exit codes, output persistence, and logging behave as expected.
 
 Aligning new work with these strategies keeps the project’s perceived enterprise readiness intact.

@@ -116,8 +116,21 @@ The user-provided `Benchmark.grade()` method receives each `TaskResult` and the 
 Saving and analysing results
 
 -   `Benchmark.run()` returns a `BenchmarkOutput` dataclass containing `results`, `summary`, and `metadata`.
-    -- When `config.results.save_intermediate` is enabled, `Benchmark.run()` will write snapshots to `config.results.output_dir`.
+-   When `config.results.save_intermediate` is enabled, `Benchmark.run()` will write snapshots to `config.results.output_dir`.
+-   **Default output location**: If `output_dir` is not specified, results are saved to `tests/<benchmark_name>/results/`
 -   The optional `visualizer/` package provides `aggregator`, `formatter`, and `graph` utilities to merge and visualise run outputs.
+
+### Raw result snapshot format
+
+Saved runs are written as JSON objects produced by `BenchmarkOutput.model_dump()`. A typical file contains:
+
+-   `metadata`: includes `benchmark_name`, a fully expanded `config` payload, and the UTC `timestamp` when the run started.
+-   `results`: list of two-element lists; position `0` is the serialized `TaskResult`, position `1` is the corresponding `Grade`.
+    -   `TaskResult` fields: `task_id`, `model_name`, `response`, `execution_time`, `token_usage`, `error`, `success`, `metadata`, `raw_response`, `conversation_history`, `tool_calls`, `available_tools`.
+    -   `Grade` fields: `score`, `passed`, `reasoning`, `grader_name`, `metadata`.
+-   `summary`: aggregate statistics from `Evaluator.calculate_summary()`, including `total_tasks`, `mean_score`, `median_score`, `min_score`, `max_score`, `pass_rate`, `total_passed`, `total_failed`, and grouped breakdowns under `by_model` and `by_task`.
+-   `execution_time`: total wall-clock duration of the run in seconds.
+-   `timestamp`: completion timestamp for the snapshot (ISO 8601).
 
 Notes & troubleshooting
 

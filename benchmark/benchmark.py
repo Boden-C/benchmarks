@@ -244,7 +244,10 @@ class Benchmark(ABC):
             output: Benchmark output to save
         """
         results_config = self.config.results
-        output_dir = Path(results_config.get("output_dir", "results"))
+        
+        # Default to benchmark directory if not specified
+        default_output_dir = self.benchmark_dir / "results"
+        output_dir = Path(results_config.get("output_dir", str(default_output_dir)))
         
         if not results_config.get("save_intermediate", True):
             logger.debug("Result saving disabled")

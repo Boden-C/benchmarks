@@ -114,8 +114,8 @@ cache:
 
 # Results Configuration
 results:
-  # Output directory for results
-  output_dir: "./results"
+  # Output directory for results (defaults to tests/<benchmark_name>/results if not specified)
+  output_dir: null
   
   # Save intermediate results
   save_intermediate: true

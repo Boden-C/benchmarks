@@ -79,7 +79,7 @@ graph TD
     -   `python main.py --benchmark example_benchmark --questions tests/example_benchmark/custom.jsonl`
 -   Each flag is optional; unspecified files fall back to `tests/<benchmark_name>/config.yaml` and the config-declared questions path.
 -   The CLI resolves the benchmark module dynamically, instantiates the subclass, and streams structured logs while the async run completes.
--   Results are emitted as a `BenchmarkOutput` instance; JSON snapshots are written when configured through `config.results.output_dir`.
+-   Results are emitted as a `BenchmarkOutput` instance; JSON snapshots are written to `tests/<benchmark_name>/results/` by default (configurable via `config.results.output_dir`).
 
 ### 3. Execute Programmatically
 
