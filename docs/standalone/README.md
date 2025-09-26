@@ -1,4 +1,4 @@
-# tandalone Benchmark CLI
+# Standalone Benchmark CLI
 
 A minimal, zero-dependency LLM benchmarking tool using the Pollinations AI API. This script requires only Python's standard library and can run anywhere without installation.
 
@@ -6,16 +6,16 @@ Run `python standalone.py --list-models --show-all` to inspect canonical model i
 
 ## Features
 
-- **Zero Dependencies**: Uses only Python standard library (`urllib`, `json`, `argparse`)
-- **Pollinations AI Integration**: Leverages free Pollinations AI API for model access
-- **JSON Response Parsing**: Automatic structured output parsing with `json=true` parameter
-- **Inline Task Definition**: Define questions directly via command-line flags
-- **Flexible Evaluation**: Substring (default) or exact match validation
-- **Display Mode**: Compare model responses without ground truth validation
-- **Multiple Questions**: Single request with multiple questions, parsed as structured JSON
-- **Model Discovery**: Automatic fetching of available models from API
-- **Rate Limiting**: Configurable wait time between requests
-- **Detailed Results**: JSON output with execution times, scores, and metadata
+-   **Zero Dependencies**: Uses only Python standard library (`urllib`, `json`, `argparse`)
+-   **Pollinations AI Integration**: Leverages free Pollinations AI API for model access
+-   **JSON Response Parsing**: Automatic structured output parsing with `json=true` parameter
+-   **Inline Task Definition**: Define questions directly via command-line flags
+-   **Flexible Evaluation**: Substring (default) or exact match validation
+-   **Display Mode**: Compare model responses without ground truth validation
+-   **Multiple Questions**: Single request with multiple questions, parsed as structured JSON
+-   **Model Discovery**: Automatic fetching of available models from API
+-   **Rate Limiting**: Configurable wait time between requests
+-   **Detailed Results**: JSON output with execution times, scores, and metadata
 
 ## Quick Start
 
@@ -162,22 +162,22 @@ This will:
 
 ## Command-Line Options
 
-| Flag                  | Description                                                               | Default                                                               |
-| --------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `tasks_file`        | Path to tasks JSON file (standalone expects JSON array/object; not JSONL) | Optional                                                              |
-| `-q, --question`    | Inline question(s) to ask                                                 | None                                                                  |
-| `-a, --answer`      | Expected answer(s) for validation                                         | None                                                                  |
-| `--eval-type`       | Evaluation type (substr, exact)                                           | `substr`                                                            |
+| Flag                | Description                                                               | Default                                                           |
+| ------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `tasks_file`        | Path to tasks JSON file (standalone expects JSON array/object; not JSONL) | Optional                                                          |
+| `-q, --question`    | Inline question(s) to ask                                                 | None                                                              |
+| `-a, --answer`      | Expected answer(s) for validation                                         | None                                                              |
+| `--eval-type`       | Evaluation type (substr, exact)                                           | `substr`                                                          |
 | `-m, --models`      | Models to test                                                            | Curated defaults (`"OpenAI GPT-5 Nano"`, `"OpenAI GPT-4.1 Nano"`) |
-| `-w, --wait`        | Wait time between requests (seconds)                                      | `6`                                                                 |
-| `-t, --temperature` | Sampling temperature (0.0-3.0)                                            | `1.0`                                                               |
-| `--timeout`         | Request timeout (seconds)                                                 | `180`                                                               |
-| `-s, --system`      | System message for model                                                  | None                                                                  |
-| `-o, --output`      | Output file for results                                                   | Auto (`standalone_results.json` when evaluating) or none            |
-| `-v, --verbose`     | Enable verbose logging                                                    | `False`                                                             |
-| `--list-models`     | List available models and exit                                            | -                                                                     |
-| `--reasoning-only`  | List only reasoning models                                                | -                                                                     |
-| `--show-all`        | Show all model details                                                    | -                                                                     |
+| `-w, --wait`        | Wait time between requests (seconds)                                      | `6`                                                               |
+| `-t, --temperature` | Sampling temperature (0.0-3.0)                                            | `1.0`                                                             |
+| `--timeout`         | Request timeout (seconds)                                                 | `180`                                                             |
+| `-s, --system`      | System message for model                                                  | None                                                              |
+| `-o, --output`      | Output file for results                                                   | Auto (`standalone_results.json` when evaluating) or none          |
+| `-v, --verbose`     | Enable verbose logging                                                    | `False`                                                           |
+| `--list-models`     | List available models and exit                                            | -                                                                 |
+| `--reasoning-only`  | List only reasoning models                                                | -                                                                 |
+| `--show-all`        | Show all model details                                                    | -                                                                 |
 
 ## Workflow Modes
 
@@ -187,10 +187,10 @@ This will:
 
 **Behavior**:
 
-- Models generate responses with JSON formatting
-- Responses are parsed and displayed
-- No validation performed
-- No results file saved by default (use `-o` to save)
+-   Models generate responses with JSON formatting
+-   Responses are parsed and displayed
+-   No validation performed
+-   No results file saved by default (use `-o` to save)
 
 **Example**:
 
@@ -220,10 +220,10 @@ Extracted Answers:
 
 **Behavior**:
 
-- Models generate responses with JSON formatting
-- Responses are parsed and validated
-- Scores calculated per question
-- Results saved to file automatically
+-   Models generate responses with JSON formatting
+-   Responses are parsed and validated
+-   Scores calculated per question
+-   Results saved to file automatically
 
 **Example**:
 
@@ -252,9 +252,9 @@ Results saved to: standalone_results.json
 
 **Behavior**:
 
-- Questions with answers are validated
-- Questions without answers are display-only
-- Overall scoring based only on validated questions
+-   Questions with answers are validated
+-   Questions without answers are display-only
+-   Overall scoring based only on validated questions
 
 **Example**:
 
@@ -388,8 +388,8 @@ Omit `ground_truth` for display-only questions.
 python standalone.py -q "What is the capital of France?" -a "Paris" --eval-type substr
 ```
 
-- Response: "The capital of France is **Paris**, a beautiful city."
-- Result: ✅ **Pass** (contains "paris")
+-   Response: "The capital of France is **Paris**, a beautiful city."
+-   Result: ✅ **Pass** (contains "paris")
 
 ### Exact Match (`exact`)
 
@@ -399,10 +399,10 @@ python standalone.py -q "What is the capital of France?" -a "Paris" --eval-type 
 python standalone.py -q "2+2" -a "4" --eval-type exact
 ```
 
-- Response: "4"
-- Result: ✅ **Pass** (exact match)
-- Response: "The answer is 4"
-- Result: ❌ **Fail** (not exact match)
+-   Response: "4"
+-   Result: ✅ **Pass** (exact match)
+-   Response: "The answer is 4"
+-   Result: ❌ **Fail** (not exact match)
 
 ## Output Format
 
@@ -506,18 +506,18 @@ The script automatically fetches models from `https://text.pollinations.ai/model
 
 ### Reasoning Models
 
-- `deepseek` - DeepSeek V3.1 (reasoning capable)
-- `openai-reasoning` - OpenAI o4 Mini (reasoning capable)
+-   `deepseek` - DeepSeek V3.1 (reasoning capable)
+-   `openai-reasoning` - OpenAI o4 Mini (reasoning capable)
 
 ### Standard Models
 
-- `openai` - OpenAI GPT-5 Nano
-- `openai-fast` - OpenAI GPT-4.1 Nano
-- `openai-large` - OpenAI GPT-5 Chat
-- `gemini` - Gemini 2.5 Flash Lite
-- `gemini-search` - Gemini 2.5 Flash Lite with Google Search
-- `mistral` - Mistral Small 3.2 24B
-- `qwen-coder` - Qwen 2.5 Coder 32B
+-   `openai` - OpenAI GPT-5 Nano
+-   `openai-fast` - OpenAI GPT-4.1 Nano
+-   `openai-large` - OpenAI GPT-5 Chat
+-   `gemini` - Gemini 2.5 Flash Lite
+-   `gemini-search` - Gemini 2.5 Flash Lite with Google Search
+-   `mistral` - Mistral Small 3.2 24B
+-   `qwen-coder` - Qwen 2.5 Coder 32B
 
 ## Examples
 
@@ -636,27 +636,27 @@ python standalone.py tasks.json -q "Question?" -m openai
 
 HTTP errors, timeouts, or API failures:
 
-- Captured as error in result
-- Score: 0.0
-- Reasoning: "Execution failed: {error}"
-- Continues with remaining models/tasks
+-   Captured as error in result
+-   Score: 0.0
+-   Reasoning: "Execution failed: {error}"
+-   Continues with remaining models/tasks
 
 ## Rate Limiting
 
 The Pollinations AI API is free but rate-limited. The default 6-second wait between requests is conservative. Adjust based on your needs:
 
-- **Development**: `-w 3` (faster iteration)
-- **Production**: `-w 6` (safe default)
-- **Bulk testing**: `-w 10` (very safe)
+-   **Development**: `-w 3` (faster iteration)
+-   **Production**: `-w 6` (safe default)
+-   **Bulk testing**: `-w 10` (very safe)
 
 ## Limitations
 
-- No authentication required (uses free tier)
-- Sequential execution (no parallel requests)
-- Basic error handling (no automatic retries)
-- No streaming support
-- Single-turn conversations only (no chat history)
-- JSON parsing best-effort (fallback to raw text)
+-   No authentication required (uses free tier)
+-   Sequential execution (no parallel requests)
+-   Basic error handling (no automatic retries)
+-   No streaming support
+-   Single-turn conversations only (no chat history)
+-   JSON parsing best-effort (fallback to raw text)
 
 ## Integration with Main Benchmark
 
@@ -664,19 +664,19 @@ This standalone script complements the main benchmark system:
 
 **When to use standalone**:
 
-- Quick prototyping and testing
-- Environments without pip/dependencies
-- CI/CD pipelines
-- Learning and experimentation
-- One-off comparisons
+-   Quick prototyping and testing
+-   Environments without pip/dependencies
+-   CI/CD pipelines
+-   Learning and experimentation
+-   One-off comparisons
 
 **When to use main benchmark**:
 
-- Complex multi-turn conversations
-- Custom tool integration
-- Advanced evaluation metrics
-- Large-scale batch processing
-- Detailed analytics and reporting
+-   Complex multi-turn conversations
+-   Custom tool integration
+-   Advanced evaluation metrics
+-   Large-scale batch processing
+-   Detailed analytics and reporting
 
 ## Troubleshooting
 
